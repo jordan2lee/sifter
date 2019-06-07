@@ -121,7 +121,7 @@ type TransformStep struct {
 type TransformPipe []TransformStep
 
 type TableLoadStep struct {
-  Input         string                 `json:"input"`
+  Input         []string               `json:"input"`
 	RowSkip       int                    `json:"rowSkip"`
   SkipIfMissing bool                   `json:"skipIfMissing"`
   Columns       []string               `json:"columns"`
@@ -628,76 +628,86 @@ func (tp TransformPipe) Start( in chan map[string]interface{},
 
 func (ml *TableLoadStep) Run(task *Task) error {
   log.Printf("Starting Table Load")
-	input, err := evaluate.ExpressionString(ml.Input, task.Inputs, nil)
-	inputPath, err := task.Path(input)
 
-	if _, err := os.Stat(inputPath); os.IsNotExist(err) {
-		if ml.SkipIfMissing {
-			return nil
-		}
-		return fmt.Errorf("File Not Found: %s", input)
-	}
-	log.Printf("Loading: %s", inputPath)
-	fhd, err := os.Open(inputPath)
-	if err != nil {
-		return err
-	}
-	defer fhd.Close()
-
-	var hd io.Reader
-	if strings.HasSuffix(input, ".gz") || strings.HasSuffix(input, ".tgz") {
-		hd, err = gzip.NewReader(fhd)
-		if err != nil {
-			return err
-		}
-	} else {
-    hd = fhd
-  }
-
-  r := csv.NewReader(hd)
-  r.Comma = '\t'
-  r.Comment = '#'
-
-  var columns []string
-  if ml.Columns != nil {
-    columns = ml.Columns
-  }
+  paths := ml.Input
 
   procChan := []chan map[string]interface{}{}
   wg := &sync.WaitGroup{}
-  for _, trans := range ml.Transform {
-    i := make(chan map[string]interface{}, 100)
-    trans.Start(i, task, wg)
-    procChan = append(procChan, i)
-  }
-  rowSkip := ml.RowSkip
 
-  for {
-		record, err := r.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-      log.Printf("Error %s", err)
-			break
-		}
-    if rowSkip > 0 {
-      rowSkip--
-    } else {
-      if columns == nil {
-        columns = record
-      } else {
-        o := map[string]interface{}{}
-        for i, n := range columns {
-          o[n] = record[i]
-        }
-        //fmt.Printf("Proc: %s\n", o)
-        for _, c := range procChan {
-          c <- o
-        }
+  for _, path := range paths {
+    func() error {
+    	input, err := evaluate.ExpressionString(path, task.Inputs, nil)
+    	inputPath, err := task.Path(input)
+
+    	if _, err := os.Stat(inputPath); os.IsNotExist(err) {
+    		if ml.SkipIfMissing {
+    			return nil
+    		}
+    		return fmt.Errorf("File Not Found: %s", input)
+    	}
+    	log.Printf("Loading: %s", inputPath)
+    	fhd, err := os.Open(inputPath)
+    	if err != nil {
+    		return err
+    	}
+    	defer fhd.Close()
+
+    	var hd io.Reader
+    	if strings.HasSuffix(input, ".gz") || strings.HasSuffix(input, ".tgz") {
+    		hd, err = gzip.NewReader(fhd)
+    		if err != nil {
+    			return err
+    		}
+    	} else {
+        hd = fhd
       }
-    }
-	}
+
+      r := csv.NewReader(hd)
+      r.Comma = '\t'
+      r.Comment = '#'
+
+      var columns []string
+      if ml.Columns != nil {
+        columns = ml.Columns
+      }
+
+
+      for _, trans := range ml.Transform {
+        i := make(chan map[string]interface{}, 100)
+        trans.Start(i, task, wg)
+        procChan = append(procChan, i)
+      }
+      rowSkip := ml.RowSkip
+
+      for {
+    		record, err := r.Read()
+    		if err == io.EOF {
+    			break
+    		}
+    		if err != nil {
+          log.Printf("Error %s", err)
+    			break
+    		}
+        if rowSkip > 0 {
+          rowSkip--
+        } else {
+          if columns == nil {
+            columns = record
+          } else {
+            o := map[string]interface{}{}
+            for i, n := range columns {
+              o[n] = record[i]
+            }
+            //fmt.Printf("Proc: %s\n", o)
+            for _, c := range procChan {
+              c <- o
+            }
+          }
+        }
+    	}
+      return nil
+    }()
+  }
 
   log.Printf("Done Loading")
   for _, c := range procChan {

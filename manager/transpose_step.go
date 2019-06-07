@@ -14,6 +14,7 @@ import (
 type TransposeFileStep struct {
   Input   string `json:"input"`
   Output  string `json:"output"`
+  SkipIfMissing bool    `json:"skipIfMissing"`
 }
 
 
@@ -29,7 +30,11 @@ func (ml *TransposeFileStep) Run(task *Task) error {
 
   hd, err := os.Open(inputPath)
   if err != nil {
-    return err
+    if !ml.SkipIfMissing {
+      return err
+    } else {
+      return nil
+    }
   }
   defer hd.Close()
 

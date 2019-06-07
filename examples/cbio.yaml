@@ -14,7 +14,7 @@ steps:
       input: "{{input.tar}}"
   - desc: Loading Patient List
     tableLoad:
-      input: data_clinical_patient.txt
+      input: [ data_clinical_patient.txt ]
       transform:
         -
           - project:
@@ -28,7 +28,7 @@ steps:
               class: case
   - desc: Loading Sample List
     tableLoad:
-      input: data_clinical_sample.txt
+      input: [ data_clinical_sample.txt ]
       transform:
         -
           - project:
@@ -54,10 +54,11 @@ steps:
     transposeFile:
         input: data_RNA_Seq_expression_median.txt
         output: data_RNA_Seq_expression_median_transpose.txt
+        skipIfMissing: true
   -
     desc: Loading RNA File
     tableLoad:
-      input: data_RNA_Seq_expression_median_transpose.txt
+      input: [ data_RNA_Seq_expression_median_transpose.txt ]
       rowSkip: 1
       transform:
         -
@@ -83,7 +84,7 @@ steps:
               class: gene_expression
   - desc: Loading Mutations
     tableLoad:
-      input: data_mutations_extended.txt
+      input: [ data_mutations_extended.txt ]
       transform:
         -
           - alleleID:
