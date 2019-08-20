@@ -24,6 +24,7 @@ type Step struct {
 	VCFLoad      *VCFStep          `json:"vcfLoad"`
 	TableLoad    *TableLoadStep    `json:"tableLoad"`
 	JSONLoad     *JSONLoadStep     `json:"jsonLoad"`
+	XMLLoad      *XMLLoadStep      `json:"xmlLoad"`
 	TransposeFile *TransposeFileStep `json:"transposeFile"`
 	FileGlob      *FileGlobStep      `json:"fileGlob"`
 	Script        *ScriptStep        `json:"script"`

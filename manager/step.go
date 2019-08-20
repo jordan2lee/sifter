@@ -49,6 +49,12 @@ func (step *Step) Run(run *Runtime, inputs map[string]interface{}) error {
       run.Printf("JSON Load Error: %s", err)
       return err
     }
+  } else if step.XMLLoad != nil {
+    task := run.NewTask(inputs)
+    if err := step.XMLLoad.Run(task); err != nil {
+      run.Printf("XML Load Error: %s", err)
+      return err
+    }
   } else if step.FileGlob != nil {
     task := run.NewTask(inputs)
     if err := step.FileGlob.Run(task); err != nil {
